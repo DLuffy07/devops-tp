@@ -20,41 +20,49 @@ pipeline {
 
         stage('Tester') {
             steps {
-                echo "Tests de la revision ${env.GIT_COMMIT?.take(7)}"
-                sh 'docker build --target test -t meteo-api:test-$TAG .'
+                dir('meteo-api') {
+                    echo "Tests de la revision ${env.GIT_COMMIT?.take(7)}"
+                    sh 'docker build --target test -t meteo-api:test-$TAG .'
+                }
             }
         }
 
         stage('Construire') {
             steps {
-                sh 'docker build -t $IMAGE:$TAG -t $IMAGE:latest .'
-                sh 'docker images $IMAGE'
+                dir('meteo-api') {
+                    sh 'docker build -t $IMAGE:$TAG -t $IMAGE:latest .'
+                    sh 'docker images $IMAGE'
+                }
             }
         }
 
         stage('Publier') {
             steps {
-                withCredentials([usernamePassword(
-                        credentialsId: 'docker-hub',
-                        usernameVariable: 'REGISTRE_USER',
-                        passwordVariable: 'REGISTRE_PASS')]) {
-                    sh '''
-                        echo "$REGISTRE_PASS" | docker login -u "$REGISTRE_USER" --password-stdin
-                        docker push $IMAGE:$TAG
-                        docker push $IMAGE:latest
-                    '''
+                dir('meteo-api') {
+                    withCredentials([usernamePassword(
+                            credentialsId: 'docker-hub',
+                            usernameVariable: 'REGISTRE_USER',
+                            passwordVariable: 'REGISTRE_PASS')]) {
+                        sh '''
+                            echo "$REGISTRE_PASS" | docker login -u "$REGISTRE_USER" --password-stdin
+                            docker push $IMAGE:$TAG
+                            docker push $IMAGE:latest
+                        '''
+                    }
                 }
             }
         }
 
         stage('Deployer') {
             steps {
-                withCredentials([file(credentialsId: 'kubeconfig-kind', variable: 'KUBECONFIG')]) {
-                    sh '''
-                        kubectl set image deployment/meteo-api api=$IMAGE:$TAG
-                        kubectl rollout status deployment/meteo-api --timeout=180s
-                        kubectl get pods -l app=meteo-api
-                    '''
+                dir('meteo-api') {
+                    withCredentials([file(credentialsId: 'kubeconfig-kind', variable: 'KUBECONFIG')]) {
+                        sh '''
+                            kubectl set image deployment/meteo-api api=$IMAGE:$TAG
+                            kubectl rollout status deployment/meteo-api --timeout=180s
+                            kubectl get pods -l app=meteo-api
+                        '''
+                    }
                 }
             }
         }
