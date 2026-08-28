@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     environment {
-        IMAGE = "charlic109unix/meteo-api"
+        IMAGE = "charlic109/meteo-api"
         TAG   = "${env.BUILD_NUMBER}"
     }
 
